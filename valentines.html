@@ -1,0 +1,274 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Valentine’s?</title>
+  <style>
+    :root {
+      --bg1: #ff5fa2;
+      --bg2: #ffd1e6;
+      --card: rgba(255,255,255,0.85);
+      --text: #2a2a2a;
+      --yes: #22c55e;
+      --no: #ef4444;
+    }
+
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+      color: var(--text);
+      display: grid;
+      place-items: center;
+      background: radial-gradient(circle at 20% 20%, var(--bg2), transparent 45%),
+                  radial-gradient(circle at 80% 30%, #ffe6f2, transparent 45%),
+                  linear-gradient(135deg, var(--bg1), #ff87b8 45%, var(--bg2));
+      overflow: hidden;
+    }
+
+    .card {
+      width: min(720px, 92vw);
+      padding: 34px 26px;
+      border-radius: 24px;
+      background: var(--card);
+      box-shadow: 0 18px 40px rgba(0,0,0,0.18);
+      backdrop-filter: blur(8px);
+      text-align: center;
+      position: relative;
+    }
+
+    h1 {
+      margin: 0 0 10px;
+      font-size: clamp(26px, 4vw, 40px);
+      letter-spacing: 0.2px;
+    }
+
+    p {
+      margin: 0 0 22px;
+      font-size: clamp(15px, 2.2vw, 18px);
+      opacity: 0.9;
+    }
+
+    .playground {
+      height: 220px;
+      border-radius: 18px;
+      position: relative;
+      overflow: hidden;
+      border: 2px dashed rgba(0,0,0,0.12);
+      background: rgba(255,255,255,0.55);
+      margin: 18px auto 10px;
+    }
+
+    .btn {
+      border: 0;
+      cursor: pointer;
+      padding: 14px 18px;
+      border-radius: 999px;
+      font-weight: 700;
+      font-size: 16px;
+      box-shadow: 0 10px 18px rgba(0,0,0,0.14);
+      transition: transform 120ms ease, filter 120ms ease;
+      user-select: none;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    .btn:active { transform: scale(0.98); }
+
+    .btn-yes {
+      background: var(--yes);
+      color: white;
+    }
+    .btn-yes:hover { filter: brightness(1.05); }
+
+    .btn-no {
+      background: var(--no);
+      color: white;
+      position: absolute; /* we move it around */
+      left: 58%;
+      top: 55%;
+      transform: translate(-50%, -50%);
+    }
+
+    .row {
+      display: flex;
+      justify-content: center;
+      gap: 14px;
+      flex-wrap: wrap;
+      margin-top: 14px;
+    }
+
+    .note {
+      font-size: 12px;
+      opacity: 0.75;
+      margin-top: 10px;
+    }
+
+    .result {
+      margin-top: 14px;
+      font-size: 18px;
+      font-weight: 700;
+      min-height: 26px;
+    }
+
+    /* little floating hearts */
+    .heart {
+      position: absolute;
+      font-size: 18px;
+      opacity: 0.65;
+      animation: floatUp 6s linear infinite;
+      user-select: none;
+      pointer-events: none;
+    }
+    @keyframes floatUp {
+      from { transform: translateY(40px) rotate(0deg); opacity: 0; }
+      10% { opacity: 0.75; }
+      to { transform: translateY(-520px) rotate(360deg); opacity: 0; }
+    }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h1>Will you be my Valentine? 💘</h1>
+    <p>I promise snacks, good vibes, and a very cute date.</p>
+
+    <div class="playground" id="playground" aria-label="button area">
+      <button class="btn btn-no" id="noBtn" type="button">No 😭</button>
+    </div>
+
+    <div class="row">
+      <button class="btn btn-yes" id="yesBtn" type="button">Yes!! 🥰</button>
+    </div>
+
+    <div class="result" id="result"></div>
+    <div class="note">Tip: try to click “No” 😅</div>
+  </div>
+
+  <script>
+    const playground = document.getElementById("playground");
+    const noBtn = document.getElementById("noBtn");
+    const yesBtn = document.getElementById("yesBtn");
+    const result = document.getElementById("result");
+
+    // --- helpers ---
+    function clamp(n, min, max) { return Math.max(min, Math.min(max, n)); }
+
+    function getRect(el) { return el.getBoundingClientRect(); }
+
+    function placeNoButton(x, y) {
+      // x,y are within playground (px)
+      const pg = playground.getBoundingClientRect();
+      const btn = noBtn.getBoundingClientRect();
+
+      const minX = 8;
+      const minY = 8;
+      const maxX = pg.width - btn.width - 8;
+      const maxY = pg.height - btn.height - 8;
+
+      const cx = clamp(x, minX, maxX);
+      const cy = clamp(y, minY, maxY);
+
+      noBtn.style.left = `${cx}px`;
+      noBtn.style.top = `${cy}px`;
+      noBtn.style.transform = `translate(0, 0)`;
+    }
+
+    // Initial placement (convert from percent-ish to px)
+    function initPlacement() {
+      const pg = playground.getBoundingClientRect();
+      placeNoButton(pg.width * 0.58, pg.height * 0.55);
+    }
+    window.addEventListener("resize", initPlacement);
+    initPlacement();
+
+    // Dodge behavior:
+    // If cursor gets within "dangerRadius" of the NO button center, move it away.
+    const dangerRadius = 95; // px
+    const jumpDistance = 140; // px
+    let lastMove = 0;
+
+    playground.addEventListener("mousemove", (e) => {
+      const now = performance.now();
+      if (now - lastMove < 30) return; // tiny throttle for smoothness
+
+      const pgRect = getRect(playground);
+      const btnRect = getRect(noBtn);
+
+      // mouse position relative to playground
+      const mx = e.clientX - pgRect.left;
+      const my = e.clientY - pgRect.top;
+
+      // button center relative to playground
+      const bx = (btnRect.left - pgRect.left) + btnRect.width / 2;
+      const by = (btnRect.top - pgRect.top) + btnRect.height / 2;
+
+      const dx = mx - bx;
+      const dy = my - by;
+      const dist = Math.hypot(dx, dy);
+
+      if (dist < dangerRadius) {
+        // move opposite the cursor direction, with a bit of randomness
+        const angle = Math.atan2(dy, dx);
+        const awayAngle = angle + Math.PI + (Math.random() - 0.5) * 0.7;
+
+        const targetX = (btnRect.left - pgRect.left) + Math.cos(awayAngle) * jumpDistance;
+        const targetY = (btnRect.top - pgRect.top) + Math.sin(awayAngle) * jumpDistance;
+
+        placeNoButton(targetX, targetY);
+        lastMove = now;
+      }
+    });
+
+    // Touch support: if they tap near NO, it jumps
+    playground.addEventListener("touchstart", (e) => {
+      const t = e.touches[0];
+      if (!t) return;
+
+      const pgRect = getRect(playground);
+      const btnRect = getRect(noBtn);
+
+      const mx = t.clientX - pgRect.left;
+      const my = t.clientY - pgRect.top;
+
+      const bx = (btnRect.left - pgRect.left) + btnRect.width / 2;
+      const by = (btnRect.top - pgRect.top) + btnRect.height / 2;
+
+      const dist = Math.hypot(mx - bx, my - by);
+      if (dist < dangerRadius + 30) {
+        placeNoButton(
+          Math.random() * (pgRect.width - btnRect.width),
+          Math.random() * (pgRect.height - btnRect.height)
+        );
+        e.preventDefault();
+      }
+    }, { passive: false });
+
+    // YES click
+    yesBtn.addEventListener("click", () => {
+      result.textContent = "YAY!! 💖 Date locked in. I’ll text you the plan 😌";
+      popHearts();
+    });
+
+    // If they somehow click NO anyway
+    noBtn.addEventListener("click", () => {
+      result.textContent = "Wait… how did you even click that 😭 (Try again?)";
+    });
+
+    // Cute hearts animation
+    function popHearts() {
+      for (let i = 0; i < 16; i++) {
+        const s = document.createElement("div");
+        s.className = "heart";
+        s.textContent = ["💗","💖","💘","💕","💞"][Math.floor(Math.random()*5)];
+        s.style.left = Math.random() * 100 + "vw";
+        s.style.bottom = "-10px";
+        s.style.animationDelay = (Math.random() * 0.8) + "s";
+        s.style.fontSize = (14 + Math.random() * 20) + "px";
+        document.body.appendChild(s);
+        setTimeout(() => s.remove(), 6500);
+      }
+    }
+  </script>
+</body>
+</html>
